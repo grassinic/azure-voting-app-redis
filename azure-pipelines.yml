@@ -1,0 +1,60 @@
+jobs:
+- job: Job_1
+  displayName: Agent job 1
+  pool:
+    vmImage: ubuntu-20.04
+  steps:
+  - checkout: self
+    clean: true
+  - task: DockerCompose@0
+    displayName: Run a Docker Compose command
+    inputs:
+      azureSubscriptionEndpoint: bfc5b126-e4c2-4f25-9f79-96b7addf4b1e
+      azureContainerRegistry: '{"loginServer":"myprivatebeautiful.azurecr.io", "id" : "/subscriptions/c05c3101-b4b3-47be-8fc4-9228e7087620/resourceGroups/pilot-rg/providers/Microsoft.ContainerRegistry/registries/myprivatebeautiful"}'
+      dockerComposeFile: docker-compose.yaml
+      dockerComposeCommand: up
+      arguments: --build -d
+  - task: DockerCompose@0
+    displayName: Run a Docker Compose command
+    enabled: False
+    inputs:
+      containerregistrytype: Container Registry
+      dockerRegistryEndpoint: ceb705ed-9225-41a5-9809-9cec595fb679
+      azureSubscriptionEndpoint: bfc5b126-e4c2-4f25-9f79-96b7addf4b1e
+      azureContainerRegistry: '{"loginServer":"myprivatebeautiful.azurecr.io", "id" : "/subscriptions/c05c3101-b4b3-47be-8fc4-9228e7087620/resourceGroups/pilot-rg/providers/Microsoft.ContainerRegistry/registries/myprivatebeautiful"}'
+      dockerComposeFile: docker-compose.yaml
+      dockerComposeCommand: push
+
+  - task: AzureCLI@2
+    displayName: 'Azure CLI '
+    enabled: False
+    inputs:
+      connectedServiceNameARM: bfc5b126-e4c2-4f25-9f79-96b7addf4b1e
+      scriptType: bash
+      scriptLocation: inlineScript
+      inlineScript: >-
+        curl -L https://raw.githubusercontent.com/docker/compose-cli/main/scripts/install/install_linux.sh | sh
+
+        docker login azure --client-id 45044315-4542-4802-b68a-935b26106447 --client-secret v6w8Q~Ewx5pFU5NorOxAjXf-iz5UBTHGg0N.iaw7 --tenant-id 551bf79c-8ea3-44dd-8c4e-e53dae4f0e4c
+
+
+        docker context create aci myaci --resource-group pilot-rg
+
+
+        docker --context myaci run -d --name web -p 80:80 nginx
+
+  - task: CmdLine@2
+    env:
+        WS_APIKEY: $(APIKEY)
+        WS_USERKEY: $(USERKEY)
+        WS_WSS_URL: https://saas-eu.whitesourcesoftware.com/agent
+        WS_PRODUCTNAME: $(System.TeamProject)
+        WS_PROJECTNAME: accenture-votingapptest
+        WS_DOCKER_SCANIMAGES: true
+    displayName: WhiteSource Docker Image Scan
+    inputs:
+      script: |
+          curl -LJO https://unified-agent.s3.amazonaws.com/wss-unified-agent.jar
+          echo Unified Agent downloaded successfully
+          java -jar wss-unified-agent.jar
+
